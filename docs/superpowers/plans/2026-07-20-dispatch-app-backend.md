@@ -464,7 +464,7 @@ create table public.mission_event (
 );
 
 -- Append-only: no UPDATE/DELETE for anyone except the table owner (migrations run as owner).
-revoke update, delete on public.mission_event from public, anon, authenticated, service_role;
+revoke update, delete, truncate on public.mission_event from public, anon, authenticated, service_role;
 ```
 
 - [ ] **Step 2: Apply and verify**
@@ -566,7 +566,7 @@ create trigger custody_event_hash_chain_trigger
   before insert on public.custody_event
   for each row execute function public.custody_event_hash_chain();
 
-revoke update, delete on public.custody_event from public, anon, authenticated, service_role;
+revoke update, delete, truncate on public.custody_event from public, anon, authenticated, service_role;
 ```
 
 - [ ] **Step 2: Apply and verify**
