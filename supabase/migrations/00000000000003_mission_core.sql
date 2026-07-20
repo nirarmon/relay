@@ -10,6 +10,8 @@ create table public.mission (
   recipient_hospital_id uuid not null references public.hospital(id),
   status mission_status not null default 'OfferReceived',
   assigned_aircraft_id uuid,
+  -- Stored snapshot only; never the source of truth. UI/engines must derive live SLA
+  -- state from organ.viability_deadline_at via computeSlaState(), not read this column.
   sla_state sla_state not null default 'ON_TIME',
   created_by uuid references auth.users(id),
   created_at timestamptz not null default now(),
@@ -18,7 +20,7 @@ create table public.mission (
 
 create table public.organ (
   id uuid primary key default gen_random_uuid(),
-  mission_id uuid not null references public.mission(id),
+  mission_id uuid not null unique references public.mission(id),
   organ_type organ_type not null,
   preservation_method preservation_method not null,
   ischemic_budget_minutes int not null check (ischemic_budget_minutes > 0),
@@ -49,5 +51,8 @@ create table public.mission_event (
   metadata jsonb not null default '{}'::jsonb
 );
 
--- Append-only: no UPDATE/DELETE for anyone except the table owner (migrations run as owner).
-revoke update, delete on public.mission_event from public, anon, authenticated, service_role;
+-- Append-only: no UPDATE/DELETE/TRUNCATE for anyone except the table owner (migrations
+-- run as owner). TRUNCATE must be revoked explicitly: Supabase grants it by default on
+-- every new table, and it bypasses RLS entirely, so leaving it in place would let any
+-- authenticated connection wipe the whole audit trail in one statement.
+revoke update, delete, truncate on public.mission_event from public, anon, authenticated, service_role;
