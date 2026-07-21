@@ -4,8 +4,10 @@ import type { Database } from "@/types/database";
 type OrganType = "HEART" | "LUNG" | "LIVER" | "PANCREAS" | "KIDNEY";
 type PreservationMethod = "STATIC_COLD" | "MACHINE_PERFUSION";
 
-// POC defaults only — not medical advice. Coordinators can edit the suggested
-// value before submitting; these are a starting point, not a clinical guarantee.
+// Default windows (minutes) — editable per-mission in the UI. Static-cold values follow
+// conservative clinical practice; machine-perfusion values extend the window per the
+// plan's R5/Q5 assumption. Confirm with a transplant coordinator before relying on these
+// clinically (see open-questions.md Q5) — these are POC defaults, not medical advice.
 const STATIC_COLD_MINUTES: Record<OrganType, number> = {
   HEART: 4 * 60,
   LUNG: 6 * 60,
