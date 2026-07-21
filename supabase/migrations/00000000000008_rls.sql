@@ -181,3 +181,9 @@ create policy user_role_select_own_org on public.user_role
   for select to authenticated using (
     exists (select 1 from public.user_profile up where up.id = user_role.user_id and up.org_id = public.auth_org_id())
   );
+
+-- Global lookup table, same treatment as organization/airport: readable by any
+-- authenticated user, no write policy (RLS default-denies writes with none defined).
+alter table public.role enable row level security;
+create policy role_select_all on public.role
+  for select to authenticated using (true);
