@@ -56,7 +56,10 @@ async function main() {
     ])
     .select();
   if (airportErr) throw airportErr;
-  const [teb, phl] = airports;
+  // Non-null assertions: `.select()` after a successful insert (checked above) always
+  // returns one row per input, in order — noUncheckedIndexedAccess just can't prove that.
+  const teb = airports[0]!;
+  const phl = airports[1]!;
 
   const { data: hospitals, error: hospErr } = await supabase
     .from("hospital")
@@ -66,7 +69,8 @@ async function main() {
     ])
     .select();
   if (hospErr) throw hospErr;
-  const [donorHospital, recipientHospital] = hospitals;
+  const donorHospital = hospitals[0]!;
+  const recipientHospital = hospitals[1]!;
 
   const { data: contract, error: contractErr } = await supabase
     .from("contract")
@@ -99,7 +103,8 @@ async function main() {
     ])
     .select();
   if (aircraftErr) throw aircraftErr;
-  const [legalAircraft, nonD085Aircraft] = aircraft;
+  const legalAircraft = aircraft[0]!;
+  const nonD085Aircraft = aircraft[1]!;
 
   const { data: pilots, error: pilotErr } = await supabase
     .from("pilot")
@@ -111,7 +116,10 @@ async function main() {
     ])
     .select();
   if (pilotErr) throw pilotErr;
-  const [legalPilot1, legalPilot2, legalPilot3, violatingPilot] = pilots;
+  const legalPilot1 = pilots[0]!;
+  const legalPilot2 = pilots[1]!;
+  const legalPilot3 = pilots[2]!;
+  const violatingPilot = pilots[3]!;
 
   const { error: dutyErr } = await supabase.from("duty_record").insert([
     { pilot_id: legalPilot1.id, record_type: "REST", start_at: hoursAgo(20), end_at: hoursAgo(6) },
@@ -180,7 +188,7 @@ async function main() {
     ])
     .select();
   if (legErr) throw legErr;
-  const groundLeg1 = legs[0];
+  const groundLeg1 = legs[0]!;
 
   const { data: seedUser, error: seedUserErr } = await supabase.auth.admin.createUser({
     email: "seed-courier@relay.demo",
@@ -191,18 +199,23 @@ async function main() {
   if (seedUserErr) throw seedUserErr;
   const courierUserId = seedUser.user.id;
 
+  // chain_seq/event_hash are placeholders required only to satisfy the generated Insert
+  // type — custody_event_hash_chain_trigger (a BEFORE INSERT trigger, see migration 4)
+  // unconditionally recomputes and overwrites both columns for every row.
   const { error: custodyErr } = await supabase.from("custody_event").insert([
     {
       organ_id: activeOrgan.id, leg_id: groundLeg1.id, event_type: "TAKE",
       custodian_user_id: courierUserId, custodian_role: "COURIER",
       occurred_at: hoursAgo(2), location: "SRID=4326;POINT(-73.9548 40.7644)",
       proof_type: "SIGNATURE", proof_ref: "seed/signature-1.png",
+      chain_seq: 0, event_hash: "0".repeat(64),
     },
     {
       organ_id: activeOrgan.id, leg_id: groundLeg1.id, event_type: "HANDOFF",
       custodian_user_id: courierUserId, custodian_role: "COURIER",
       occurred_at: hoursAgo(1.5), location: "SRID=4326;POINT(-74.0608 40.8501)",
       proof_type: "SIGNATURE", proof_ref: "seed/signature-2.png",
+      chain_seq: 0, event_hash: "0".repeat(64),
     },
   ]);
   if (custodyErr) throw custodyErr;
