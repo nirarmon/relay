@@ -22,6 +22,8 @@ create table public.user_role (
   primary key (user_id, role_id)
 );
 
+-- New auth.users rows must carry org_id + name in raw_user_meta_data (set at signup)
+-- so this trigger can provision the matching user_profile row.
 create or replace function public.handle_new_auth_user()
 returns trigger
 language plpgsql
