@@ -46,7 +46,20 @@ export function CountdownTimer({ viabilityDeadlineAt, size = "medium", atRiskThr
 
   return (
     <div className="flex flex-col items-start gap-1">
-      <span data-testid="countdown-value" className={`font-mono tabular-nums ${colorClass} ${sizeClasses}`}>
+      {/*
+        suppressHydrationWarning: this text is a live clock derived from `new Date()`,
+        so the server-rendered value and the client's first-hydration value will
+        legitimately differ by however much time elapsed in between (and can straddle
+        a second boundary). This is the scenario React's own hydration-mismatch docs
+        call out explicitly (https://react.dev/link/hydration-mismatch) — the fix is
+        to suppress the warning for this node, not to eliminate the (expected, harmless,
+        self-correcting within 1s via the tick interval) mismatch.
+      */}
+      <span
+        data-testid="countdown-value"
+        suppressHydrationWarning
+        className={`font-mono tabular-nums ${colorClass} ${sizeClasses}`}
+      >
         {msRemaining <= 0 ? "+" : ""}
         {formatDuration(msRemaining)}
       </span>

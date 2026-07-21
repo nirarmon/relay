@@ -2,8 +2,7 @@
 
 import { useCallback, useState, useTransition } from "react";
 import type { MissionDetail } from "@/lib/queries/missions";
-import { transitionMission } from "@/lib/actions/mission-actions";
-import { createClient } from "@/lib/supabase/client";
+import { submitMissionTransition } from "@/lib/actions/mission-transition.server";
 import { useRealtimeMission } from "@/lib/hooks/useRealtimeMission";
 import { CountdownTimer } from "@/components/CountdownTimer";
 import { MissionStepper } from "@/components/MissionStepper";
@@ -42,8 +41,7 @@ export function MissionDetailClient({ initialMission, refreshMission, mapMarkers
 
   async function handleExceptionAction(event: MissionEventType) {
     setActionError(null);
-    const supabase = createClient();
-    const result = await transitionMission(supabase, { missionId: mission.id, event });
+    const result = await submitMissionTransition({ missionId: mission.id, event });
     if (!result.ok) {
       setActionError(result.error);
       return;

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { assignCarrier, type CarrierCandidate } from "@/lib/actions/assign-carrier-action";
+import { submitCarrierAssignment } from "@/lib/actions/assign-carrier.server";
+import type { CarrierCandidate } from "@/lib/actions/assign-carrier-action";
 import { DutyTimeIndicator } from "@/components/DutyTimeIndicator";
 import { StatusBadge } from "@/components/StatusBadge";
 
@@ -27,8 +27,7 @@ export function CarrierAssignmentClient({ missionId, operatorOrgId, contractId, 
     if (!selectedAircraftId || !selectedPilotId) return;
     setSubmitting(true);
     setError(null);
-    const supabase = createClient();
-    const result = await assignCarrier(supabase, operatorOrgId, contractId, {
+    const result = await submitCarrierAssignment(operatorOrgId, contractId, {
       missionId,
       aircraftId: selectedAircraftId,
       crew: [{ pilotId: selectedPilotId, role: "PIC" }],
@@ -70,19 +69,35 @@ export function CarrierAssignmentClient({ missionId, operatorOrgId, contractId, 
                   <p className="text-xs text-slate-500">Crew — select a legal pilot to assign as PIC:</p>
                   <div className="flex flex-col gap-2">
                     {candidate.pilots.map((pilot) => (
-                      <label key={pilot.id} className={`flex items-center gap-2 rounded-md border p-2 ${pilot.legality.legal ? "border-slate-800" : "border-status-breached/30 opacity-60"}`}>
-                        <input
-                          type="radio"
-                          name="pilot"
-                          disabled={!pilot.legality.legal}
-                          checked={selectedAircraftId === candidate.aircraft.id && selectedPilotId === pilot.id}
-                          onChange={() => {
-                            setSelectedAircraftId(candidate.aircraft.id);
-                            setSelectedPilotId(pilot.id);
-                          }}
-                        />
-                        <span className="flex-1 text-sm text-slate-200">{pilot.name}</span>
-                      </label>
+                      <div key={pilot.id} className="flex flex-col gap-1">
+                        <label className={`flex items-center gap-2 rounded-md border p-2 ${pilot.legality.legal ? "border-slate-800" : "border-status-breached/30 opacity-60"}`}>
+                          <input
+                            type="radio"
+                            name="pilot"
+                            disabled={!pilot.legality.legal}
+                            checked={selectedAircraftId === candidate.aircraft.id && selectedPilotId === pilot.id}
+                            onChange={() => {
+                              setSelectedAircraftId(candidate.aircraft.id);
+                              setSelectedPilotId(pilot.id);
+                            }}
+                          />
+                          <span className="flex-1 text-sm text-slate-200">{pilot.name}</span>
+                        </label>
+                        {/*
+                          A blocked pilot's radio is disabled, so it can never become the
+                          "selected" pilot — meaning the DutyTimeIndicator below (which only
+                          renders for the selected pilot) would never surface this pilot's
+                          block reason. Render it unconditionally here instead, mirroring how
+                          aircraftReasons are shown unconditionally for a blocked aircraft, so
+                          the pilot is "visibly blocked with a reason, not just hidden" per the
+                          design spec's Carrier Assignment definition of done.
+                        */}
+                        {!pilot.legality.legal && (
+                          <p role="alert" className="pl-2 text-xs text-status-breached">
+                            {pilot.legality.reasons.join(" ")}
+                          </p>
+                        )}
+                      </div>
                     ))}
                   </div>
                   {isSelected && selectedPilotId && (

@@ -1,4 +1,16 @@
-"use server";
+// NOTE: deliberately NOT a "use server" file -- see the identical note atop
+// mission-actions.ts. Both getCarrierCandidates and assignCarrier here take an
+// injected SupabaseClient so they stay plain, directly-testable functions (see
+// assign-carrier-action.test.ts). getCarrierCandidates is also called directly
+// from carrier/page.tsx (a Server Component), which is a plain in-process
+// function call and never crosses the client/server RPC boundary, so it's fine
+// there. The actual Next.js Server Action client components call for the mutating
+// path lives in ./assign-carrier.server.ts and creates its own server-side
+// client internally before delegating to assignCarrier here -- a live
+// SupabaseClient instance passed as a Server Action argument from the browser
+// arrives inert on the server (verified end-to-end: clicking "Assign Carrier"
+// used to reproduce "Cannot access ... from on the server. You cannot dot into a
+// temporary client reference from a server component." and a 500 response).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
