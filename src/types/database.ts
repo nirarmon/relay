@@ -1233,6 +1233,15 @@ export type Database = {
             }
             Returns: string
           }
+      assign_carrier_and_transition: {
+        Args: {
+          p_mission_id: string
+          p_aircraft_id: string
+          p_crew: Json
+          p_note?: string
+        }
+        Returns: undefined
+      }
       auth_org_id: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -2093,6 +2102,17 @@ export type Database = {
       postgis_wagyu_version: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      record_mission_transition: {
+        Args: {
+          p_mission_id: string
+          p_from_status: Database["public"]["Enums"]["mission_status"]
+          p_to_status: Database["public"]["Enums"]["mission_status"]
+          p_event_type: string
+          p_note?: string
+          p_metadata?: Json
+        }
+        Returns: undefined
       }
       spheroid_in: {
         Args: {
