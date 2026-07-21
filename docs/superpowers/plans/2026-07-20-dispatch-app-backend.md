@@ -931,10 +931,35 @@ create policy aircraft_select_own_org on public.aircraft
   for select to authenticated using (operator_org_id = public.auth_org_id());
 create policy aircraft_write_own_org on public.aircraft
   for all to authenticated using (operator_org_id = public.auth_org_id());
+-- Without this, an OPO coordinator can never see the tail number of the aircraft
+-- assigned to their own mission (aircraft_select_own_org only grants the operator
+-- org), even though mission_select_own_org lets them see the mission itself — the
+-- Mission Detail screen's "Crew & Aircraft" summary would silently degrade to
+-- "No aircraft assigned" for every OPO-side viewer, contradicting the design
+-- brief's requirement to show the assigned aircraft on that screen.
+create policy aircraft_select_via_assigned_mission on public.aircraft
+  for select to authenticated using (
+    exists (
+      select 1 from public.mission m
+      where m.assigned_aircraft_id = aircraft.id
+        and (m.opo_org_id = public.auth_org_id() or m.operator_org_id = public.auth_org_id())
+    )
+  );
 
 alter table public.pilot enable row level security;
 create policy pilot_select_own_org on public.pilot
   for select to authenticated using (operator_org_id = public.auth_org_id());
+-- Same reasoning as aircraft_select_via_assigned_mission: without this, an OPO
+-- coordinator can never resolve a crew member's name for a mission they can see.
+create policy pilot_select_via_crew_assignment on public.pilot
+  for select to authenticated using (
+    exists (
+      select 1 from public.crew_assignment ca
+      join public.mission m on m.id = ca.mission_id
+      where ca.pilot_id = pilot.id
+        and (m.opo_org_id = public.auth_org_id() or m.operator_org_id = public.auth_org_id())
+    )
+  );
 
 alter table public.duty_record enable row level security;
 create policy duty_record_select_own_org on public.duty_record
