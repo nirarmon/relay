@@ -58,8 +58,6 @@ create table public.custody_event (
   unique (organ_id, chain_seq)
 );
 
-create index custody_event_organ_chain_seq_idx on public.custody_event (organ_id, chain_seq desc);
-
 create or replace function public.custody_event_hash_chain()
 returns trigger
 language plpgsql
