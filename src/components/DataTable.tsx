@@ -1,4 +1,9 @@
 export interface DataTableColumn<T> {
+  // `keyof T | string` collapses to plain `string` at the type level (a union with its
+  // own supertype), so this gives no compile-time typo protection today — it's written
+  // this way to allow future virtual/computed columns with a custom `render` and no
+  // matching field on T. Callers relying on real `T` keys get no extra safety from this
+  // union; a typo'd key silently falls back to an empty cell at runtime, not a build error.
   key: keyof T | string;
   header: string;
   render?: (row: T) => React.ReactNode;
