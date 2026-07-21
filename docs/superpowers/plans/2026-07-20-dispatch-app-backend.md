@@ -798,12 +798,16 @@ git commit -m "Add role, user_profile, user_role tables and auto-provisioning tr
 
 `auth_org_id()` is the single helper every policy uses — it reads the caller's org from `user_profile`. PHI-bearing tables (`hospital`, `mission`, `organ`, `mission_event`, `leg`, `custody_event`, `pilot`, `duty_record`, `crew_assignment`, `invoice`) are scoped so a user only sees rows where their org is the OPO or the operator on that row (directly, or via the parent `mission`). `organization` and `airport` are non-PHI reference data, readable by any authenticated user for the POC's single-OPO/single-operator scope.
 
+`auth_org_id()` must be `security definer` with a locked `search_path` — `user_profile` itself has an RLS policy that calls `auth_org_id()`, so a plain `stable`/invoker-rights function recurses infinitely (confirmed empirically: `stack depth limit exceeded`) the moment any policy on `user_profile` evaluates it. `security definer` makes the function's internal lookup run as its (superuser) owner, bypassing RLS for that one query, without changing what any policy actually checks.
+
 ```sql
 -- 00000000000008_rls.sql
 create or replace function public.auth_org_id()
 returns uuid
 language sql
 stable
+security definer
+set search_path = public, pg_temp
 as $$
   select org_id from public.user_profile where id = auth.uid()
 $$;
