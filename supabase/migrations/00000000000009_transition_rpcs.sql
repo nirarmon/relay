@@ -13,6 +13,44 @@ as $$
 declare
   v_actor_role text;
 begin
+  -- Unlike assign_carrier_and_transition (whose from/to statuses are fixed literals,
+  -- so it can only ever perform the one legal CarrierRequested->CarrierAssigned edge),
+  -- this function takes both statuses as caller-supplied parameters. The WHERE clause
+  -- below only guards concurrency (has the row moved since the caller last read it),
+  -- not legality — without this check, any authenticated org member could call this
+  -- RPC directly (Postgres grants EXECUTE to PUBLIC by default) with an arbitrary
+  -- from/to pair, bypassing the TypeScript state-machine's transition graph entirely.
+  -- Mirrors src/lib/engines/state-machine.ts's TRANSITIONS table exactly — keep in sync.
+  if not exists (
+    select 1 from (values
+      ('OfferReceived','MissionCreated'),
+      ('MissionCreated','CarrierRequested'),
+      ('CarrierRequested','CarrierAssigned'),
+      ('CarrierRequested','MissionCreated'),
+      ('CarrierAssigned','Positioning'),
+      ('Positioning','TeamAtDonor'),
+      ('TeamAtDonor','CustodyStarted'),
+      ('CustodyStarted','InTransitGround1'),
+      ('InTransitGround1','InTransitAir'),
+      ('InTransitAir','InTransitGround2'),
+      ('InTransitGround2','Delivered'),
+      ('Delivered','Closed'),
+      ('CarrierAssigned','Exception_Delay'),
+      ('InTransitAir','Exception_Divert'),
+      ('Positioning','Exception_Declined'),
+      ('CustodyStarted','Exception_MissedWindow'),
+      ('Exception_Delay','Positioning'),
+      ('Exception_Divert','InTransitAir'),
+      ('Exception_Divert','Exception_MissedWindow'),
+      ('Exception_Declined','Closed'),
+      ('Exception_MissedWindow','Delivered'),
+      ('Exception_MissedWindow','Closed')
+    ) as edges(from_status, to_status)
+    where edges.from_status = p_from_status::text and edges.to_status = p_to_status::text
+  ) then
+    raise exception 'Illegal transition: % -> % is not a valid mission state transition', p_from_status, p_to_status;
+  end if;
+
   select r.name into v_actor_role
   from public.user_role ur
   join public.role r on r.id = ur.role_id
@@ -51,6 +89,10 @@ declare
   v_actor_role text;
   v_crew_row jsonb;
 begin
+  if coalesce(jsonb_array_length(p_crew), 0) = 0 then
+    raise exception 'p_crew must contain at least one crew member';
+  end if;
+
   select r.name into v_actor_role
   from public.user_role ur
   join public.role r on r.id = ur.role_id
