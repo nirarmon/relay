@@ -155,6 +155,17 @@ create policy crew_assignment_select_via_mission on public.crew_assignment
         and (m.opo_org_id = public.auth_org_id() or m.operator_org_id = public.auth_org_id())
     )
   );
+-- Needed for assign_carrier_and_transition (Task 15's RPC) to insert crew rows as a
+-- real authenticated caller — RLS default-denies INSERT with no explicit policy, which
+-- would otherwise only let service_role/superuser callers ever call that RPC.
+create policy crew_assignment_insert_via_mission on public.crew_assignment
+  for insert to authenticated with check (
+    exists (
+      select 1 from public.mission m
+      where m.id = crew_assignment.mission_id
+        and (m.opo_org_id = public.auth_org_id() or m.operator_org_id = public.auth_org_id())
+    )
+  );
 
 alter table public.maintenance_record enable row level security;
 create policy maintenance_record_select_own_org on public.maintenance_record
