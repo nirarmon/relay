@@ -2473,7 +2473,18 @@ Walk the design spec's §8 "done" checklist against the running app.
 
 - [ ] **Step 1: Create a coordinator login for manual testing**
 
-Run (with local Supabase running):
+**Fixed 2026-07-22:** the raw SQL below only sets a few columns; auth.users' other NOT NULL
+token columns (`confirmation_token`, `recovery_token`, etc.) default to NULL on this schema
+version, which GoTrue then fails to scan (`500: Database error querying schema`) on the very
+next login attempt. Use `supabase.auth.admin.createUser` instead (same mechanism the seed
+script already uses for `seed-courier@relay.demo`), which populates every column correctly:
+```bash
+npx tsx scripts/create-demo-coordinator.ts
+```
+Expected: no error; `select id from auth.users where email='coordinator@relay.demo'` returns one row, and `select * from user_profile where email='coordinator@relay.demo'` shows the auto-provisioned profile (Task 9's trigger). Re-run after every `supabase db reset` — the row doesn't survive it.
+
+<details><summary>Original (broken) approach, kept for context</summary>
+
 ```bash
 npx supabase db execute --local --sql "
 insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_user_meta_data)
@@ -2482,7 +2493,7 @@ select gen_random_uuid(), 'coordinator@relay.demo', crypt('relay-demo-pw', gen_s
 where not exists (select 1 from auth.users where email = 'coordinator@relay.demo');
 "
 ```
-Expected: no error; `select id from auth.users where email='coordinator@relay.demo'` returns one row, and `select * from user_profile where email='coordinator@relay.demo'` shows the auto-provisioned profile (Task 9's trigger).
+</details>
 
 - [ ] **Step 2: Run the full test suite**
 

@@ -1719,7 +1719,23 @@ begin
   values (p_mission_id, p_from_status, p_to_status, p_event_type, auth.uid(), v_actor_role, p_note, coalesce(p_metadata, '{}'::jsonb));
 end;
 $$;
+```
 
+**Fixed 2026-07-22** (migration `00000000000012_cross_clamp_sets_organ_timestamp.sql`): this version never
+stamped `organ.cross_clamp_at`, so `viability_deadline_at` (a generated column off it) stayed null and the
+SLA/ischemic countdown never started for any mission progressed through the app — only the seeded demo
+mission "worked" because the seed script set `cross_clamp_at` directly. Found during a full manual
+walkthrough of the happy path. The fix adds, right after the mission status update:
+
+```sql
+  if p_event_type = 'CROSS_CLAMP' then
+    update public.organ
+    set cross_clamp_at = now()
+    where id = (select organ_id from public.mission where id = p_mission_id);
+  end if;
+```
+
+```sql
 -- Carrier assignment additionally binds aircraft + crew rows in the same transaction
 -- as the state transition. Legality is computed in TypeScript (duty-legality engine)
 -- and passed in as pre-validated crew rows; this function trusts the caller has already
