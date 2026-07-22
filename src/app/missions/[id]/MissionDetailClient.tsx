@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState, useTransition } from "react";
+import Link from "next/link";
 import type { MissionDetail } from "@/lib/queries/missions";
 import { submitMissionTransition } from "@/lib/actions/mission-transition.server";
 import { useRealtimeMission } from "@/lib/hooks/useRealtimeMission";
@@ -26,6 +27,22 @@ const EXCEPTION_ACTIONS: Array<{ event: MissionEventType; label: string; validFr
   { event: "BREACH_SLA", label: "Mark window missed", validFrom: ["CustodyStarted"] },
 ];
 
+// Happy-path progression (personas-and-workflows.md §2.2). ASSIGN_CARRIER is deliberately
+// excluded — it requires the D085/duty-legality gate and is only ever submitted from the
+// dedicated Carrier Assignment screen, so CarrierRequested links there instead of firing an event.
+const HAPPY_PATH_ACTIONS: Array<{ event: MissionEventType; label: string; validFrom: MissionStatus[] }> = [
+  { event: "ACCEPT_OFFER", label: "Accept offer", validFrom: ["OfferReceived"] },
+  { event: "REQUEST_CARRIER", label: "Request carrier", validFrom: ["MissionCreated"] },
+  { event: "DISPATCH_AIRCRAFT", label: "Dispatch aircraft", validFrom: ["CarrierAssigned"] },
+  { event: "TEAM_ON_SITE", label: "Team on site at donor", validFrom: ["Positioning"] },
+  { event: "CROSS_CLAMP", label: "Cross-clamp (start custody)", validFrom: ["TeamAtDonor"] },
+  { event: "DEPART_DONOR_GROUND", label: "Depart donor (ground)", validFrom: ["CustodyStarted"] },
+  { event: "WHEELS_UP", label: "Wheels up", validFrom: ["InTransitGround1"] },
+  { event: "WHEELS_DOWN", label: "Wheels down", validFrom: ["InTransitAir"] },
+  { event: "CONFIRM_DELIVERY", label: "Confirm delivery", validFrom: ["InTransitGround2"] },
+  { event: "CLOSE_MISSION", label: "Close mission", validFrom: ["Delivered"] },
+];
+
 export function MissionDetailClient({ initialMission, refreshMission, mapMarkers }: MissionDetailClientProps) {
   const [mission, setMission] = useState(initialMission);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -39,7 +56,7 @@ export function MissionDetailClient({ initialMission, refreshMission, mapMarkers
 
   useRealtimeMission(mission.id, refresh);
 
-  async function handleExceptionAction(event: MissionEventType) {
+  async function handleTransition(event: MissionEventType) {
     setActionError(null);
     const result = await submitMissionTransition({ missionId: mission.id, event });
     if (!result.ok) {
@@ -53,6 +70,7 @@ export function MissionDetailClient({ initialMission, refreshMission, mapMarkers
     ? computeSlaState(new Date(), mission.organ.viabilityDeadlineAt ? new Date(mission.organ.viabilityDeadlineAt) : null)
     : "ON_TIME";
   const availableExceptions = EXCEPTION_ACTIONS.filter((a) => a.validFrom.includes(mission.status as MissionStatus));
+  const nextAction = HAPPY_PATH_ACTIONS.find((a) => a.validFrom.includes(mission.status as MissionStatus));
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -72,6 +90,23 @@ export function MissionDetailClient({ initialMission, refreshMission, mapMarkers
       </div>
 
       <MissionStepper currentStatus={mission.status as MissionStatus} />
+
+      {mission.status === "CarrierRequested" ? (
+        <Link
+          href={`/missions/${mission.id}/carrier`}
+          className="w-fit rounded-md bg-status-info px-4 py-2 text-sm font-medium text-white"
+        >
+          Assign carrier →
+        </Link>
+      ) : nextAction ? (
+        <button
+          type="button"
+          onClick={() => handleTransition(nextAction.event)}
+          className="w-fit rounded-md bg-status-info px-4 py-2 text-sm font-medium text-white"
+        >
+          {nextAction.label}
+        </button>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -123,7 +158,7 @@ export function MissionDetailClient({ initialMission, refreshMission, mapMarkers
                     type="button"
                     onClick={() => {
                       if (confirm(`Confirm: ${action.label}? This is logged to the mission audit trail.`)) {
-                        handleExceptionAction(action.event);
+                        handleTransition(action.event);
                       }
                     }}
                     className="rounded-md border border-status-atrisk/40 px-3 py-1.5 text-sm text-status-atrisk hover:bg-status-atrisk/10"
