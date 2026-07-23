@@ -15,16 +15,10 @@ export default async function MissionDetailPage({ params }: { params: Promise<{ 
   // `application/geo+json` representation instead, reshaping the response into a
   // FeatureCollection whose `features[].geometry` matches the `{ coordinates: [lng, lat] }`
   // shape `pointToLngLat` expects.
-  const { data: donorGeo } = await supabase
-    .from("hospital")
-    .select("location")
-    .eq("id", mission.donorHospital.id)
-    .geojson();
-  const { data: recipientGeo } = await supabase
-    .from("hospital")
-    .select("location")
-    .eq("id", mission.recipientHospital.id)
-    .geojson();
+  const [{ data: donorGeo }, { data: recipientGeo }] = await Promise.all([
+    supabase.from("hospital").select("location").eq("id", mission.donorHospital.id).geojson(),
+    supabase.from("hospital").select("location").eq("id", mission.recipientHospital.id).geojson(),
+  ]);
 
   const mapMarkers: MapMarker[] = [];
   const donorLngLat = pointToLngLat((donorGeo as any)?.features?.[0]?.geometry ?? null);

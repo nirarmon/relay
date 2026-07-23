@@ -28,23 +28,17 @@ export async function getCarrierCandidates(
   operatorOrgId: string,
   contractId: string
 ): Promise<CarrierCandidate[]> {
-  const { data: contract, error: contractError } = await supabase
-    .from("contract")
-    .select("required_csl_amount")
-    .eq("id", contractId)
-    .single();
+  const [
+    { data: contract, error: contractError },
+    { data: aircraftRows, error: aircraftError },
+    { data: pilotRows, error: pilotError },
+  ] = await Promise.all([
+    supabase.from("contract").select("required_csl_amount").eq("id", contractId).single(),
+    supabase.from("aircraft").select("id, tail_number, type, on_d085, liability_csl_amount, status").eq("operator_org_id", operatorOrgId),
+    supabase.from("pilot").select("id, name, currency_status").eq("operator_org_id", operatorOrgId),
+  ]);
   if (contractError || !contract) throw contractError ?? new Error("Contract not found");
-
-  const { data: aircraftRows, error: aircraftError } = await supabase
-    .from("aircraft")
-    .select("id, tail_number, type, on_d085, liability_csl_amount, status")
-    .eq("operator_org_id", operatorOrgId);
   if (aircraftError) throw aircraftError;
-
-  const { data: pilotRows, error: pilotError } = await supabase
-    .from("pilot")
-    .select("id, name, currency_status")
-    .eq("operator_org_id", operatorOrgId);
   if (pilotError) throw pilotError;
 
   const now = new Date();

@@ -89,28 +89,27 @@ export async function getMissionDetail(
   if (missionError) throw missionError;
   const m: any = mission;
 
-  const [{ data: legs, error: legErr }, { data: crew, error: crewErr }, { data: events, error: eventErr }] =
-    await Promise.all([
-      supabase.from("leg").select("id, sequence_no, mode, call_sign_category, status").eq("mission_id", missionId).order("sequence_no"),
-      supabase.from("crew_assignment").select("pilot_id, role, pilot:pilot(name)").eq("mission_id", missionId),
-      supabase.from("mission_event").select("id, from_status, to_status, event_type, occurred_at, note").eq("mission_id", missionId).order("occurred_at", { ascending: false }),
-    ]);
+  const [
+    { data: legs, error: legErr },
+    { data: crew, error: crewErr },
+    { data: events, error: eventErr },
+    { data: custody, error: custodyErr },
+  ] = await Promise.all([
+    supabase.from("leg").select("id, sequence_no, mode, call_sign_category, status").eq("mission_id", missionId).order("sequence_no"),
+    supabase.from("crew_assignment").select("pilot_id, role, pilot:pilot(name)").eq("mission_id", missionId),
+    supabase.from("mission_event").select("id, from_status, to_status, event_type, occurred_at, note").eq("mission_id", missionId).order("occurred_at", { ascending: false }),
+    m.organ?.id
+      ? supabase.from("custody_event").select("id, event_type, occurred_at, custodian_role, proof_type").eq("organ_id", m.organ.id).order("occurred_at")
+      : Promise.resolve({ data: [], error: null }),
+  ]);
   if (legErr) throw legErr;
   if (crewErr) throw crewErr;
   if (eventErr) throw eventErr;
+  if (custodyErr) throw custodyErr;
 
-  let custodyEvents: MissionDetail["custodyEvents"] = [];
-  if (m.organ?.id) {
-    const { data: custody, error: custodyErr } = await supabase
-      .from("custody_event")
-      .select("id, event_type, occurred_at, custodian_role, proof_type")
-      .eq("organ_id", m.organ.id)
-      .order("occurred_at");
-    if (custodyErr) throw custodyErr;
-    custodyEvents = (custody ?? []).map((c: any) => ({
-      id: c.id, eventType: c.event_type, occurredAt: c.occurred_at, custodianRole: c.custodian_role, proofType: c.proof_type,
-    }));
-  }
+  const custodyEvents: MissionDetail["custodyEvents"] = (custody ?? []).map((c: any) => ({
+    id: c.id, eventType: c.event_type, occurredAt: c.occurred_at, custodianRole: c.custodian_role, proofType: c.proof_type,
+  }));
 
   return {
     id: m.id,
