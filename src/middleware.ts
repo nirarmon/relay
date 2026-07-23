@@ -23,9 +23,16 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // getSession() decodes the JWT from cookies locally -- no network round-trip to Supabase's
+  // Auth server, unlike getUser(). This trades revoke-immediacy (a banned/deleted user stays
+  // authenticated here until their JWT naturally expires) for removing a mandatory per-request
+  // network hop, which was costing ~900ms on every navigation due to the Vercel edge (nearest
+  // the requester) and the hosted Supabase project (ap-northeast-1) being far apart. Deliberate
+  // choice; see relay-dispatch-app-status memory for the perf investigation this came out of.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   const isPublicPath = PUBLIC_PATHS.some((p) => request.nextUrl.pathname.startsWith(p));
 
