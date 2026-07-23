@@ -79,6 +79,10 @@ export function MissionDetailClient({ initialMission, refreshMission, mapMarkers
       )}
       {actionError && <p role="alert" className="text-sm text-status-breached">{actionError}</p>}
 
+      <Link href="/dashboard" className="w-fit text-sm text-slate-400 hover:text-slate-200">
+        ← All missions
+      </Link>
+
       <div className="flex items-start justify-between">
         <div>
           <h1 className="font-mono text-xl font-bold text-slate-100">
